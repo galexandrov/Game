@@ -1,0 +1,4 @@
+{
+    "connectionString": "mongodb://mongo:27017/game-db?directConnection=true",
+    "secret": "qwer1234"
+}

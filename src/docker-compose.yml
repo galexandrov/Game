@@ -1,0 +1,108 @@
+version: "3.8"
+services:
+
+  mongo:
+    hostname: mongo
+    container_name: mongo
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    restart: always
+    entrypoint:
+      [
+        "/usr/bin/mongod",
+        "--bind_ip_all",
+        "--replSet",
+        "rs0"
+      ]
+    networks:
+      - game-net
+
+  mongosetup:
+    image: mongo:latest
+    depends_on:
+      - mongo
+    volumes:
+      - ./mongo-initdb.d:/docker-entrypoint-initdb.d
+    restart: "no"
+    networks:
+      - game-net
+
+  prometheus:
+    image: prom/prometheus:v2.20.1
+    container_name: prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - 9090:9090
+    expose:
+      - 9090
+    networks:
+      - game-net
+
+  grafana:
+    image: grafana/grafana:7.1.5
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    ports:
+      - 3000:3000
+    expose:
+      - 3000
+    networks:
+      - game-net
+  
+  server1:
+    container_name: server1
+    build:
+      context: server
+    ports:
+      - 8080:8080
+    expose:
+      - 8080
+    depends_on:
+      - "mongo"
+      - "mongosetup"
+    networks:
+      - game-net
+
+  server2:
+    container_name: server2
+    build:
+      context: server
+    ports:
+      - 8081:8080
+    expose:
+      - 8081
+    depends_on:
+      - "mongo"
+      - "mongosetup"
+    networks:
+      - game-net
+
+  client:
+    container_name: client
+    build:
+      context: client
+    ports:
+      - 3001:3001
+    expose:
+      - 3001
+    depends_on:
+      - "server1"
+      - "server2"
+    networks:
+      - game-net
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+networks:
+  game-net:
+    driver: bridge
